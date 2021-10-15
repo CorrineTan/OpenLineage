@@ -12,9 +12,12 @@
 import json
 import logging
 import sys
+import typing
+
 import psycopg2
 import time
 import requests
+from jinja2 import Environment
 from retrying import retry
 
 
@@ -27,6 +30,20 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 airflow_db_conn = None
+
+
+def any(expected: typing.Any):
+    return expected
+
+
+def setup_jinja() -> Environment:
+    env = Environment()
+    env.globals['any'] = any
+    return env
+
+
+env = setup_jinja()
+
 
 
 @retry(
@@ -90,10 +107,14 @@ def match(expected, request):
                 else:
                     if not match(x, request[k][i]):
                         return False
+        elif isinstance(v, str):
+            rendered = env.from_string(v).render(request=request[k])
+            if request[k] != rendered:
+                log.error(f"For key {k}, value {rendered} not in event {request[k]}"
+                          f"\nExpected {expected}, request {request}")
         elif v != request[k]:
             log.error(f"For key {k}, value {v} not in event {request[k]}"
                       f"\nExpected {expected}, request {request}")
-            return False
     return True
 
 

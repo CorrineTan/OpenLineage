@@ -12,9 +12,10 @@ from typing import List, Tuple, Dict, Optional, TypeVar
 import attr
 
 from openlineage.client.facet import DataSourceDatasetFacet, SchemaDatasetFacet, SchemaField, \
-    SqlJobFacet, OutputStatisticsOutputDatasetFacet, ParentRunFacet
+    SqlJobFacet, OutputStatisticsOutputDatasetFacet, ParentRunFacet, BaseFacet, \
+    Assertion, DataQualityAssertionsDatasetFacet
 from openlineage.client.run import RunEvent, RunState, Run, Job, Dataset, OutputDataset
-from openlineage.client.facet import Assertion, DataQualityAssertionsDatasetFacet
+from openlineage.common.schema import GITHUB_LOCATION
 from openlineage.common.utils import get_from_nullable_chain, get_from_multiple_chains
 
 
@@ -84,6 +85,15 @@ class ParentRunMetadata:
         )
 
 
+@attr.s
+class DbtVersionRunFacet(BaseFacet):
+    dbtVersion: str = attr.ib()
+
+    @staticmethod
+    def _get_schema() -> str:
+        return GITHUB_LOCATION + "dbt-version-run-facet.json"
+
+
 T = TypeVar('T')
 
 
@@ -128,6 +138,8 @@ class DbtArtifactProcessor:
         """
         manifest = self.load_manifest(self.manifest_path)
         run_result = self.load_run_results(self.run_result_path)
+        self.run_metadata = get_from_nullable_chain(run_result, ['metadata'])
+
         catalog = self.load_catalog(self.catalog_path)
 
         profile_dir = run_result['args']['profiles_dir']
@@ -380,7 +392,8 @@ class DbtArtifactProcessor:
                 run=Run(
                     runId=run_id,
                     facets={
-                        "parent": self._dbt_run_metadata.to_openlineage()
+                        "parent": self._dbt_run_metadata.to_openlineage(),
+                        "dbtVersion": self.dbt_version_facet()
                     }
                 ),
                 job=Job(
@@ -432,7 +445,8 @@ class DbtArtifactProcessor:
                     run=Run(
                         runId=run.run_id,
                         facets={
-                            "parent": self._dbt_run_metadata.to_openlineage()
+                            "parent": self._dbt_run_metadata.to_openlineage(),
+                            "dbtVersion": self.dbt_version_facet()
                         }
                     ),
                     job=Job(
@@ -456,11 +470,8 @@ class DbtArtifactProcessor:
                     run=Run(
                         runId=run.run_id,
                         facets={
-                            "parent": ParentRunFacet.create(
-                                runId=self.dbt_run_metadata.run_id,
-                                namespace=self.dbt_run_metadata.job_namespace,
-                                name=self.dbt_run_metadata.job_name
-                            )
+                            "parent": self._dbt_run_metadata.to_openlineage(),
+                            "dbtVersion": self.dbt_version_facet()
                         }
                     ),
                     job=Job(
@@ -600,6 +611,11 @@ class DbtArtifactProcessor:
                 f"Only 'snowflake', 'bigquery', and 'redshift' adapters are supported right now. "
                 f"Passed {profile['type']}"
             )
+
+    def dbt_version_facet(self):
+        return DbtVersionRunFacet(
+            dbtVersion=self.run_metadata['dbt_version']
+        )
 
     @staticmethod
     def get_timings(timings: List[Dict]) -> Tuple[str, str]:

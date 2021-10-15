@@ -71,6 +71,9 @@
                 "parent": {
                     "job": {"name": "dbt-run-testproject", "namespace": "food_delivery"},
                     "run": {}
+                },
+                "dbtVersion": {
+                    "dbtVersion": "{{ any(request) }}"
                 }
 		    }
         },
@@ -118,6 +121,9 @@
                 "parent": {
                     "job": {"name": "dbt-run-testproject", "namespace": "food_delivery"},
                     "run": {}
+                },
+                "dbtVersion": {
+                    "dbtVersion": "{{ any(request) }}"
                 }
 		    }
         },
@@ -164,6 +170,9 @@
                 "parent": {
                     "job": {"name": "dbt-run-testproject", "namespace": "food_delivery"},
                     "run": {}
+                },
+                "dbtVersion": {
+                    "dbtVersion": "{{ any(request) }}"
                 }
 		    }
         },
